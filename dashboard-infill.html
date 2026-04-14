@@ -1,0 +1,622 @@
+
+    <!DOCTYPE html>
+    <html lang="es" class="h-100">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Dashboard Control Operacional</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        
+        <style>
+            html, body { height: 100%; }
+            body { 
+                display: flex; flex-direction: column;
+                background-color: #f4f6f9; 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                font-size: 0.85rem; 
+            }
+            .content-wrapper { flex: 1 0 auto; }
+            footer { flex-shrink: 0; background-color: #2c3e50; border-top: 3px solid #e74c3c; }
+            
+            .card { border: none; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+            .card-header { background-color: #2c3e50; color: white; border-radius: 10px 10px 0 0 !important; font-weight: 600; }
+            .btn-calcular { background-color: #27ae60; border: none; font-weight: bold; color: white; }
+            .btn-calcular:hover { background-color: #2ecc71; color: white;}
+            .btn-excel { background-color: #107c41; color: white; border: none; font-weight: bold; }
+            .btn-excel:hover { background-color: #0c5e31; color: white; }
+            .table-custom-header th { background-color: #34495e !important; color: #ffffff !important; text-align: center; vertical-align: middle; }
+            .table-custom-header td { vertical-align: middle; }
+            .input-group-sm > .form-control { text-align: center; padding: 0.25rem 0.1rem; }
+        </style>
+    </head>
+    <body>
+        <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #2c3e50;">
+            <div class="container-fluid px-3">
+                <a class="navbar-brand fw-bold" href="index.html">🛠️ Control Operacional</a>
+                
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link active" aria-current="page" href="index.html">Dashboard Proyección</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="dashboard-infill.html">Simulador Infill</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="finanzas.html">Control Financiero</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+        ```
+        <div class="content-wrapper container-fluid py-4 px-3">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 style="color: #2c3e50; font-weight: 700; margin: 0;">Dashboard de Proyección - <span id="tituloModo"></span></h2>
+                <button class="btn btn-excel px-4 py-2" onclick="exportarExcel()">
+                    📊 Exportar a Excel
+                </button>
+            </div>
+            
+            <div class="row">
+                <div class="col-12 mb-3">
+                    <div class="card">
+                        <div class="card-header">1. Metas del Proyecto</div>
+                        <div class="card-body">
+                            <div class="row align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-primary">Metros Meta AR:</label>
+                                    <input type="number" id="targetAR" class="form-control" value="0">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-success">Metros Meta DDH:</label>
+                                    <input type="number" id="targetDDH" class="form-control" value="0">
+                                </div>
+                                <div class="col-md-4 mt-3 mt-md-0">
+                                    <button class="btn btn-calcular w-100 py-2" onclick="simularProyeccion()">
+                                        ⚙️ Recalcular Proyección
+                                    </button>
+                                </div>
+                            </div>
+                            <small id="metaHelp" class="text-muted mt-2 d-none">En modo Exploración, las metas se calculan sumando el "Fin Tramo 3" (Profundidad Final) de los pozos activos.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>2. Flota de Equipos y Pozos</span>
+                            <button class="btn btn-sm btn-light text-dark fw-bold" onclick="agregarEquipoVacio()">+ Agregar Fila</button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0 text-center align-middle" id="equipTable">
+                                    <thead class="table-custom-header" id="theadEquipos">
+                                        </thead>
+                                    <tbody id="equipBody">
+                                        </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 mt-3">
+                    <div class="card">
+                        <div class="card-header">Curvas S de Avance Acumulado (AR y DDH)</div>
+                        <div class="card-body" style="height: 350px;">
+                            <canvas id="sCurveChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row pe-0">
+                    <div class="col-lg-8 mt-3">
+                        <div class="card h-100">
+                            <div class="card-header">Distribución Mensual Detallada (Metros)</div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive" id="resultsTableDiv"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4 mt-3">
+                        <div class="card h-100">
+                            <div class="card-header bg-dark text-white">📅 Fechas de Salida por Sonda</div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive" id="fechasSalidaDiv"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <footer class="footer mt-auto py-2">
+            <div class="container-fluid text-end pe-4">
+                <span style="font-size: 0.85rem; color: #bdc3c7;">Creado por <strong>F Sazo</strong> - 2026</span>
+            </div>
+        </footer>
+
+        <script>
+            let equipos = [];
+            const MODO = "Infill"; 
+            let chartInstance = null;
+
+            document.getElementById('tituloModo').innerText = MODO.toUpperCase();
+
+            if (MODO === 'Exploracion') {
+                document.getElementById('targetAR').readOnly = true;
+                document.getElementById('targetDDH').readOnly = true;
+                document.getElementById('metaHelp').classList.remove('d-none');
+            } else if (equipos.length === 0) {
+                document.getElementById('targetAR').value = 2000;
+                document.getElementById('targetDDH').value = 3000;
+            }
+
+            function sincronizarDatos() {
+                equipos.forEach((eq, index) => {
+                    let chk = document.getElementById(`chk_${index}`);
+                    if (chk) {
+                        eq.activo = chk.checked;
+                        eq.equipo = document.getElementById(`nombre_${index}`).value;
+                        eq.fecha_inicio = document.getElementById(`fecha_${index}`).value;
+                        
+                        if (MODO === 'Exploracion') {
+                            eq.pozo = document.getElementById(`pozo_${index}`).value;
+                            eq.tipo = document.getElementById(`tipo_${index}`).value;
+                            eq.ht1 = parseFloat(document.getElementById(`ht1_${index}`).value) || 0;
+                            eq.rt1 = parseFloat(document.getElementById(`rt1_${index}`).value) || 0;
+                            eq.ht2 = parseFloat(document.getElementById(`ht2_${index}`).value) || 0;
+                            eq.rt2 = parseFloat(document.getElementById(`rt2_${index}`).value) || 0;
+                            eq.ht3 = parseFloat(document.getElementById(`ht3_${index}`).value) || 0; 
+                            eq.rt3 = parseFloat(document.getElementById(`rt3_${index}`).value) || 0;
+                        } else {
+                            eq.tipo = document.getElementById(`tipo_${index}`).value;
+                            eq.rendimiento = parseFloat(document.getElementById(`rend_${index}`).value) || 0;
+                        }
+                    }
+                });
+            }
+
+            function renderHeader() {
+                const thead = document.getElementById('theadEquipos');
+                if (MODO === 'Exploracion') {
+                    thead.innerHTML = `
+                        <tr>
+                            <th style="width: 3%;">✓</th>
+                            <th style="width: 10%;">Sonda</th>
+                            <th style="width: 10%;">Pozo</th>
+                            <th style="width: 7%;">Tipo</th>
+                            <th style="width: 18%;" title="Hasta qué metro llega y a qué velocidad">Tramo 1 <br><small>(Fin m | Rend m/d)</small></th>
+                            <th style="width: 18%;" title="Hasta qué metro llega y a qué velocidad">Tramo 2 <br><small>(Fin m | Rend m/d)</small></th>
+                            <th style="width: 18%;" title="Profundidad final y velocidad">Tramo 3 <br><small>(Fin m | Rend m/d)</small></th>
+                            <th style="width: 10%;">Inicio</th>
+                            <th style="width: 6%;">Acción</th>
+                        </tr>`;
+                } else {
+                    thead.innerHTML = `
+                        <tr>
+                            <th>Uso</th><th>Equipo</th><th>Tipo</th><th>Rendimiento (m/d)</th><th>Inicio</th><th>Acción</th>
+                        </tr>`;
+                }
+            }
+
+            function renderEquipos() {
+                renderHeader();
+                const tbody = document.getElementById('equipBody');
+                tbody.innerHTML = '';
+                
+                equipos.forEach((eq, index) => {
+                    let isAR = eq.tipo === 'AR' ? 'selected' : '';
+                    let isDDH = eq.tipo === 'DDH' ? 'selected' : '';
+                    
+                    if (MODO === 'Exploracion') {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td><input class="form-check-input" type="checkbox" id="chk_${index}" ${eq.activo ? 'checked' : ''} onchange="actualizarMetasExploracion()"></td>
+                                <td><input type="text" class="form-control form-control-sm" id="nombre_${index}" value="${eq.equipo}"></td>
+                                <td><input type="text" class="form-control form-control-sm" id="pozo_${index}" value="${eq.pozo}"></td>
+                                <td>
+                                    <select class="form-select form-select-sm" id="tipo_${index}" onchange="actualizarMetasExploracion()">
+                                        <option value="AR" ${isAR}>AR</option>
+                                        <option value="DDH" ${isDDH}>DDH</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" id="ht1_${index}" value="${eq.ht1}" step="1" title="Fin Tramo 1 (m)" onchange="actualizarMetasExploracion()">
+                                        <input type="number" class="form-control" id="rt1_${index}" value="${eq.rt1}" step="0.1" title="Rendimiento Tramo 1 (m/d)">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" id="ht2_${index}" value="${eq.ht2}" step="1" title="Fin Tramo 2 (m)" onchange="actualizarMetasExploracion()">
+                                        <input type="number" class="form-control" id="rt2_${index}" value="${eq.rt2}" step="0.1" title="Rendimiento Tramo 2 (m/d)">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control fw-bold text-danger" id="ht3_${index}" value="${eq.ht3}" step="1" title="Fin Pozo (m)" onchange="actualizarMetasExploracion()">
+                                        <input type="number" class="form-control" id="rt3_${index}" value="${eq.rt3}" step="0.1" title="Rendimiento Tramo 3 (m/d)">
+                                    </div>
+                                </td>
+                                <td><input type="date" class="form-control form-control-sm" id="fecha_${index}" value="${eq.fecha_inicio}"></td>
+                                <td><button class="btn btn-sm btn-outline-danger" onclick="eliminarEquipo(${index})">🗑️</button></td>
+                            </tr>
+                        `;
+                    } else {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td><input class="form-check-input" type="checkbox" id="chk_${index}" ${eq.activo ? 'checked' : ''}></td>
+                                <td><input type="text" class="form-control form-control-sm" id="nombre_${index}" value="${eq.equipo}"></td>
+                                <td>
+                                    <select class="form-select form-select-sm" id="tipo_${index}">
+                                        <option value="AR" ${isAR}>AR</option>
+                                        <option value="DDH" ${isDDH}>DDH</option>
+                                    </select>
+                                </td>
+                                <td><input type="number" class="form-control form-control-sm" id="rend_${index}" value="${eq.rendimiento}" step="0.1"></td>
+                                <td><input type="date" class="form-control form-control-sm" id="fecha_${index}" value="${eq.fecha_inicio}"></td>
+                                <td><button class="btn btn-sm btn-outline-danger" onclick="eliminarEquipo(${index})">🗑️</button></td>
+                            </tr>
+                        `;
+                    }
+                });
+                if (MODO === 'Exploracion') actualizarMetasExploracion();
+            }
+
+            function eliminarEquipo(index) {
+                sincronizarDatos();
+                equipos.splice(index, 1);
+                renderEquipos();
+            }
+
+            function agregarEquipoVacio() {
+                sincronizarDatos();
+                const hoy = new Date().toISOString().split('T')[0];
+                equipos.push({ 
+                    equipo: "Nueva Sonda", tipo: "DDH", rendimiento: 15.0, 
+                    pozo: "Nuevo Pozo", 
+                    ht1: 100, rt1: 15.0, 
+                    ht2: 200, rt2: 12.0, 
+                    ht3: 300, rt3: 10.0,
+                    fecha_inicio: hoy, activo: true 
+                });
+                renderEquipos();
+            }
+
+            function actualizarMetasExploracion() {
+                if (MODO !== 'Exploracion') return;
+                let tAR = 0; let tDDH = 0;
+                equipos.forEach((eq, index) => {
+                    let chk = document.getElementById(`chk_${index}`);
+                    if (chk && chk.checked) {
+                        let tipo = document.getElementById(`tipo_${index}`).value;
+                        let profFinal = parseFloat(document.getElementById(`ht3_${index}`).value) || 0;
+                        if (tipo === 'AR') tAR += profFinal;
+                        if (tipo === 'DDH') tDDH += profFinal;
+                    }
+                });
+                document.getElementById('targetAR').value = tAR;
+                document.getElementById('targetDDH').value = tDDH;
+            }
+
+            function parseDate(dateString) {
+                if(!dateString) return new Date();
+                const [year, month, day] = dateString.split('-');
+                return new Date(year, month - 1, day);
+            }
+
+            function simularProyeccion() {
+                sincronizarDatos();
+                let flotaActiva = [];
+                
+                equipos.forEach((eq, index) => {
+                    if(eq.activo) {
+                        let baseObj = {
+                            nombre: eq.equipo,
+                            tipo: eq.tipo,
+                            inicio: parseDate(eq.fecha_inicio),
+                            avanceAcumulado: 0,
+                            fechaSalida: null
+                        };
+
+                        if (MODO === 'Exploracion') {
+                            baseObj.pozo = eq.pozo;
+                            baseObj.ht1 = eq.ht1;
+                            baseObj.rt1 = eq.rt1;
+                            baseObj.ht2 = eq.ht2;
+                            baseObj.rt2 = eq.rt2;
+                            baseObj.ht3 = eq.ht3; 
+                            baseObj.rt3 = eq.rt3;
+                            baseObj.key_tabla = `${baseObj.nombre} (${baseObj.pozo})`;
+                        } else {
+                            baseObj.rendimiento = eq.rendimiento;
+                            baseObj.key_tabla = baseObj.nombre;
+                        }
+                        flotaActiva.push(baseObj);
+                    }
+                });
+
+                let targetAR = parseFloat(document.getElementById('targetAR').value) || 0;
+                let targetDDH = parseFloat(document.getElementById('targetDDH').value) || 0;
+
+                // CORRECCIÓN 1: Evitar bucles infinitos si no hay equipos de un tipo específico
+                let hasAR = flotaActiva.some(eq => eq.tipo === 'AR');
+                let hasDDH = flotaActiva.some(eq => eq.tipo === 'DDH');
+                if (targetAR > 0 && !hasAR) targetAR = 0;
+                if (targetDDH > 0 && !hasDDH) targetDDH = 0;
+
+                if (flotaActiva.length === 0 || (targetAR === 0 && targetDDH === 0)) {
+                    alert("Configura al menos un equipo/pozo activo y metas mayores a 0 que coincidan con el tipo de equipo.");
+                    return;
+                }
+
+                let currentDate = new Date(Math.min(...flotaActiva.map(e => e.inicio)));
+                let accAR = 0; let accDDH = 0;
+                let dataMensual = {}; 
+                let dataGrafico = { labels: [], accAR: [], accDDH: [] };
+                let maxDays = 5000; let days = 0;
+                
+                let fechaFinGlobalAR = null;
+                let fechaFinGlobalDDH = null;
+
+                // CORRECCIÓN 2: Tolerancia (- 0.01) para evitar bloqueos por precisión de decimales
+                while(((targetAR > 0 && accAR < targetAR - 0.01) || (targetDDH > 0 && accDDH < targetDDH - 0.01)) && days < maxDays) {
+                    let year = currentDate.getFullYear();
+                    let month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
+                    let mesKey = `${year}-${month}`;
+                    
+                    let equiposOcupados = {}; 
+                    let avanceDiarioTotal = 0; // Para medir si hubo progreso real en el día
+
+                    flotaActiva.forEach(eq => {
+                        if (MODO === 'Exploracion') {
+                            if (eq.avanceAcumulado >= eq.ht3 - 0.01) return; 
+                            if (currentDate < eq.inicio) return; 
+                            if (equiposOcupados[eq.nombre]) return; 
+                            
+                            equiposOcupados[eq.nombre] = true; 
+                            
+                            let rendActual = 0;
+                            if (eq.avanceAcumulado < eq.ht1) rendActual = eq.rt1;
+                            else if (eq.avanceAcumulado < eq.ht2) rendActual = eq.rt2;
+                            else rendActual = eq.rt3;
+                            
+                            let avanceHoy = Math.min(rendActual, eq.ht3 - eq.avanceAcumulado);
+                            
+                            if (eq.tipo === 'AR' && accAR + avanceHoy > targetAR) avanceHoy = targetAR - accAR;
+                            if (eq.tipo === 'DDH' && accDDH + avanceHoy > targetDDH) avanceHoy = targetDDH - accDDH;
+                            
+                            if (avanceHoy > 0) {
+                                // CORRECCIÓN 3: Solo se crea el mes en el diccionario si hubo avance real
+                                if (!dataMensual[mesKey]) dataMensual[mesKey] = {};
+                                eq.avanceAcumulado += avanceHoy;
+                                avanceDiarioTotal += avanceHoy;
+                                if (eq.tipo === 'AR') accAR += avanceHoy;
+                                else accDDH += avanceHoy;
+                                dataMensual[mesKey][eq.key_tabla] = (dataMensual[mesKey][eq.key_tabla] || 0) + avanceHoy;
+                            }
+                            
+                            if (eq.avanceAcumulado >= eq.ht3 - 0.01 && !eq.fechaSalida) {
+                                eq.fechaSalida = new Date(currentDate);
+                            }
+
+                        } else {
+                            if (currentDate >= eq.inicio) {
+                                let avanceHoy = 0;
+                                if (eq.tipo === 'AR' && accAR < targetAR - 0.01) {
+                                    avanceHoy = Math.min(eq.rendimiento, targetAR - accAR);
+                                } else if (eq.tipo === 'DDH' && accDDH < targetDDH - 0.01) {
+                                    avanceHoy = Math.min(eq.rendimiento, targetDDH - accDDH);
+                                }
+
+                                if (avanceHoy > 0) {
+                                    // CORRECCIÓN 3: Solo se crea el mes en el diccionario si hubo avance real
+                                    if (!dataMensual[mesKey]) dataMensual[mesKey] = {};
+                                    eq.avanceAcumulado += avanceHoy;
+                                    avanceDiarioTotal += avanceHoy;
+                                    if (eq.tipo === 'AR') accAR += avanceHoy;
+                                    else accDDH += avanceHoy;
+                                    dataMensual[mesKey][eq.key_tabla] = (dataMensual[mesKey][eq.key_tabla] || 0) + avanceHoy;
+                                }
+                            }
+                        }
+                    });
+
+                    // CORRECCIÓN 4: Sistema de quiebre si la simulación se estanca (ej. todos los pozos finalizaron)
+                    if (avanceDiarioTotal === 0) {
+                        let puedeAvanzarFuturo = flotaActiva.some(eq => {
+                            let noHaTerminado = MODO === 'Exploracion' ? (eq.avanceAcumulado < eq.ht3 - 0.01) : true;
+                            let empiezaEnElFuturo = currentDate < eq.inicio;
+                            return noHaTerminado && empiezaEnElFuturo;
+                        });
+                        if (!puedeAvanzarFuturo) break; 
+                    }
+
+                    if (targetAR > 0 && accAR >= targetAR - 0.01 && !fechaFinGlobalAR) fechaFinGlobalAR = new Date(currentDate);
+                    if (targetDDH > 0 && accDDH >= targetDDH - 0.01 && !fechaFinGlobalDDH) fechaFinGlobalDDH = new Date(currentDate);
+
+                    if (currentDate.getDay() === 0 || (accAR >= targetAR - 0.01 && accDDH >= targetDDH - 0.01)) {
+                        dataGrafico.labels.push(`${currentDate.getDate()}/${month}/${year}`);
+                        dataGrafico.accAR.push(accAR);
+                        dataGrafico.accDDH.push(accDDH);
+                    }
+
+                    currentDate.setDate(currentDate.getDate() + 1);
+                    days++;
+                }
+
+                if (MODO === 'Infill') {
+                    flotaActiva.forEach(eq => {
+                        if (eq.tipo === 'AR' && fechaFinGlobalAR) eq.fechaSalida = fechaFinGlobalAR;
+                        if (eq.tipo === 'DDH' && fechaFinGlobalDDH) eq.fechaSalida = fechaFinGlobalDDH;
+                    });
+                }
+
+                let salidaPorEquipo = {};
+                flotaActiva.forEach(eq => {
+                    if (eq.fechaSalida) {
+                        if (!salidaPorEquipo[eq.nombre] || eq.fechaSalida > salidaPorEquipo[eq.nombre]) {
+                            salidaPorEquipo[eq.nombre] = eq.fechaSalida;
+                        }
+                    }
+                });
+
+                renderResultados(dataMensual, flotaActiva);
+                renderFechasSalida(salidaPorEquipo, flotaActiva);
+                renderGrafico(dataGrafico, targetAR, targetDDH);
+            }
+
+            function renderResultados(dataMensual, flotaActiva) {
+                let thead = `<tr class="table-custom-header"><th>Mes</th>`;
+                flotaActiva.forEach(eq => thead += `<th>${eq.key_tabla} <br><small>(${eq.tipo})</small></th>`);
+                thead += `<th>Total Mes</th><th>Acumulado Global</th></tr>`;
+
+                let tbody = ``;
+                let acumuladoGlobal = 0;
+
+                for (let mes in dataMensual) {
+                    let fila = `<tr><td><strong>${mes}</strong></td>`;
+                    let totalMes = 0;
+                    
+                    flotaActiva.forEach(eq => {
+                        let val = dataMensual[mes][eq.key_tabla] || 0;
+                        totalMes += val;
+                        let colorTexto = eq.tipo === 'AR' ? '#0984e3' : '#00b894';
+                        fila += `<td style="color:${colorTexto}; font-weight:500;">${val > 0 ? val.toFixed(1) : '-'}</td>`;
+                    });
+                    
+                    acumuladoGlobal += totalMes;
+                    fila += `<td><strong>${totalMes.toFixed(1)}</strong></td>`;
+                    fila += `<td><strong>${acumuladoGlobal.toFixed(1)}</strong></td></tr>`;
+                    tbody += fila;
+                }
+
+                document.getElementById('resultsTableDiv').innerHTML = `
+                    <table class="table table-bordered table-striped mb-0 text-center align-middle" id="tablaProyeccionBase" style="font-size:0.85rem;">
+                        <thead>${thead}</thead>
+                        <tbody>${tbody}</tbody>
+                    </table>
+                `;
+            }
+
+            function renderFechasSalida(salidaPorEquipo, flotaActiva) {
+                let uniqueEquipos = {};
+                flotaActiva.forEach(eq => {
+                    if(!uniqueEquipos[eq.nombre]) uniqueEquipos[eq.nombre] = eq.tipo;
+                });
+
+                let tbody = '';
+                for (let nombre in uniqueEquipos) {
+                    let tipo = uniqueEquipos[nombre];
+                    let fecha = salidaPorEquipo[nombre];
+                    let dateStr = fecha ? fecha.toLocaleDateString('es-CL', { year: 'numeric', month: '2-digit', day: '2-digit' }) : 'No finaliza';
+
+                    tbody += `<tr>
+                        <td class="fw-bold">${nombre}</td>
+                        <td><span class="badge ${tipo === 'AR' ? 'bg-primary' : 'bg-success'}">${tipo}</span></td>
+                        <td class="fw-bold" style="color: #e74c3c;">${dateStr}</td>
+                    </tr>`;
+                }
+
+                document.getElementById('fechasSalidaDiv').innerHTML = `
+                    <table class="table table-hover table-striped mb-0 text-center align-middle" id="tablaFechasBase" style="font-size:0.85rem;">
+                        <thead class="table-custom-header">
+                            <tr><th>Sonda</th><th>Tipo</th><th>Desmovilización</th></tr>
+                        </thead>
+                        <tbody>${tbody}</tbody>
+                    </table>
+                `;
+            }
+
+            function renderGrafico(dataGrafico, targetAR, targetDDH) {
+                const ctx = document.getElementById('sCurveChart').getContext('2d');
+                if(chartInstance) chartInstance.destroy();
+
+                let datasetsConfig = [];
+
+                if (targetAR > 0) {
+                    datasetsConfig.push({
+                        label: 'Avance Real AR (m)', data: dataGrafico.accAR,
+                        borderColor: '#0984e3', backgroundColor: 'rgba(9, 132, 227, 0.1)',
+                        fill: true, tension: 0.4, borderWidth: 2, pointRadius: 1
+                    });
+                    datasetsConfig.push({
+                        label: 'Meta AR', data: Array(dataGrafico.labels.length).fill(targetAR),
+                        borderColor: '#74b9ff', borderDash: [5, 5], fill: false, borderWidth: 2, pointRadius: 0
+                    });
+                }
+
+                if (targetDDH > 0) {
+                    datasetsConfig.push({
+                        label: 'Avance Real DDH (m)', data: dataGrafico.accDDH,
+                        borderColor: '#00b894', backgroundColor: 'rgba(0, 184, 148, 0.1)',
+                        fill: true, tension: 0.4, borderWidth: 2, pointRadius: 1
+                    });
+                    datasetsConfig.push({
+                        label: 'Meta DDH', data: Array(dataGrafico.labels.length).fill(targetDDH),
+                        borderColor: '#55efc4', borderDash: [5, 5], fill: false, borderWidth: 2, pointRadius: 0
+                    });
+                }
+
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: dataGrafico.labels, datasets: datasetsConfig },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true } },
+                        interaction: { intersect: false, mode: 'index' }
+                    }
+                });
+            }
+
+            // NUEVA FUNCIÓN: Exportar a Excel
+            function exportarExcel() {
+                try {
+                    let wb = XLSX.utils.book_new();
+
+                    // Pestaña 1: Proyección de metros
+                    let tablaProyeccion = document.getElementById('tablaProyeccionBase');
+                    if (tablaProyeccion) {
+                        let ws1 = XLSX.utils.table_to_sheet(tablaProyeccion);
+                        XLSX.utils.book_append_sheet(wb, ws1, "Proyeccion_Mensual");
+                    }
+
+                    // Pestaña 2: Fechas de Desmovilización
+                    let tablaFechas = document.getElementById('tablaFechasBase');
+                    if (tablaFechas) {
+                        let ws2 = XLSX.utils.table_to_sheet(tablaFechas);
+                        XLSX.utils.book_append_sheet(wb, ws2, "Desmovilizacion");
+                    }
+
+                    // Generar archivo y forzar descarga
+                    let fechaHoy = new Date().toISOString().split('T')[0];
+                    XLSX.writeFile(wb, `Reporte_Proyeccion_Perforacion_${fechaHoy}.xlsx`);
+                    
+                } catch (error) {
+                    alert("Por favor, asegúrate de haber calculado la proyección antes de exportar.");
+                }
+            }
+
+            window.onload = () => {
+                renderEquipos();
+                if (equipos.length > 0) {
+                    simularProyeccion();
+                } else {
+                    agregarEquipoVacio();
+                }
+            }
+        </script>
+    </body>
+    </html>
+    
